@@ -71,7 +71,7 @@ class AgentTrace(BaseModel):
 # ─────────────────────────────────────────────────────────────────
 
 class AnalysisRequest(BaseModel):
-    tickers:       list[str]       = Field(..., min_length=1)
+    tickers:       list[str]       = Field(...)
     force_refresh: bool            = False
     analyst_notes: Optional[str]   = None
 
