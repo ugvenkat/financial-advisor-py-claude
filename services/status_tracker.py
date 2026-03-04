@@ -32,7 +32,7 @@ class AgentStatusTracker:
             key = f"{ticker}::{agent}"
             act = self._jobs[job_id].active_agents.get(key)
             if act:
-                act.activity   = f"✅ DONE: {result}"
+                act.activity   = f"[DONE]: {result}"
                 act.completed  = True
                 act.updated_at = datetime.utcnow()
 

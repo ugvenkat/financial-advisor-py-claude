@@ -32,6 +32,13 @@ from services.status_tracker import AgentStatusTracker
 
 log = logging.getLogger("orchestrator")
 
+def _safe_float(val, default=0.0) -> float:
+    """Safely convert value to float, returning default if not possible."""
+    try:
+        return float(val) if val is not None else default
+    except (ValueError, TypeError):
+        return default
+
 # Thread pool for running CrewAI (blocking) tasks inside async context
 _POOL = ThreadPoolExecutor(max_workers=8)
 
@@ -134,7 +141,7 @@ def _parse_fundamental(ticker: str, output: str) -> FundamentalScore:
     score = FundamentalScore(ticker=ticker, detailed_analysis=output)
     obj   = _extract_json(output)
     if obj:
-        score.score     = float(obj.get("score", 50))
+        score.score     = _safe_float(obj.get("score", 50))
         score.grade     = obj.get("grade") or _grade_from_score(score.score)
         score.strengths = obj.get("strengths", [])
         score.weaknesses= obj.get("weaknesses", [])
@@ -153,11 +160,11 @@ def _parse_sentiment(ticker: str, output: str) -> SentimentScore:
     score = SentimentScore(ticker=ticker, sentiment_summary=output)
     obj   = _extract_json(output)
     if obj:
-        raw = float(obj.get("score", obj.get("sentiment_score", 0)))
+        raw = _safe_float(obj.get("score", obj.get("sentiment_score", 0)))
         score.score           = raw
-        score.bullish_percent = float(obj.get("bullish_pct", obj.get("bullish_percent", 0)))
-        score.bearish_percent = float(obj.get("bearish_pct", obj.get("bearish_percent", 0)))
-        score.neutral_percent = float(obj.get("neutral_pct", obj.get("neutral_percent", 0)))
+        score.bullish_percent = _safe_float(obj.get("bullish_pct", obj.get("bullish_percent", 0)))
+        score.bearish_percent = _safe_float(obj.get("bearish_pct", obj.get("bearish_percent", 0)))
+        score.neutral_percent = _safe_float(obj.get("neutral_pct", obj.get("neutral_percent", 0)))
         overall_str = (obj.get("overall") or obj.get("overall_sentiment") or "").lower()
         if "bullish" in overall_str or raw > 0.2:
             score.overall = SentimentClass.Bullish
@@ -178,7 +185,7 @@ def _parse_risk(ticker: str, output: str) -> RiskScore:
     risk = RiskScore(ticker=ticker, risk_summary=output)
     obj  = _extract_json(output)
     if obj:
-        risk.score   = float(obj.get("risk_score", obj.get("score", 50)))
+        risk.score   = _safe_float(obj.get("risk_score", obj.get("score", 50)))
         level_str    = (obj.get("risk_level") or "").lower()
         if "veryhigh" in level_str or "very" in level_str:
             risk.level = RiskLevel.VeryHigh
@@ -223,7 +230,7 @@ def _parse_recommendation(
         except ValueError:
             rec.action = InvestmentAction.Hold
 
-        rec.confidence   = float(obj.get("confidence", 60))
+        rec.confidence   = _safe_float(obj.get("confidence", 60))
         rec.price_target = obj.get("price_target") or obj.get("target")
         rec.time_horizon = obj.get("time_horizon", "6-12 months")
         rec.key_catalysts= obj.get("catalysts", obj.get("key_catalysts", []))
@@ -273,8 +280,10 @@ class MultiAgentOrchestrator:
         )
         await self.memory.save_job(job)
         log.info("Job %s queued: %s", job.job_id, job.tickers)
-        # Fire and forget in background
-        asyncio.create_task(self._run_job(job, request))
+        # Schedule as background task on current event loop
+        print(f"[START_JOB] Scheduling job {job.job_id} for {job.tickers}", flush=True)
+        asyncio.ensure_future(self._run_job(job, request))
+        print(f"[START_JOB] Task created for {job.job_id}", flush=True)
         return job
 
     async def get_job(self, job_id: str) -> AnalysisJob | None:
@@ -284,6 +293,7 @@ class MultiAgentOrchestrator:
         return await self.memory.get_recent_jobs(limit)
 
     async def _run_job(self, job: AnalysisJob, request: AnalysisRequest):
+        print(f"[JOB] Started {job.job_id} for {job.tickers}", flush=True)
         job.status = JobStatus.Running
         await self.memory.save_job(job)
         try:
@@ -303,7 +313,7 @@ class MultiAgentOrchestrator:
             job.output_dir   = await self.writer.write_report(job.job_id, portfolio)
             job.status       = JobStatus.Completed
             job.completed_at = datetime.utcnow()
-            log.info("Job %s COMPLETE → %s", job.job_id, job.output_dir)
+            log.info("Job %s COMPLETE: %s", job.job_id, job.output_dir)
         except Exception as e:
             job.status        = JobStatus.Failed
             job.error_message = str(e)
@@ -313,7 +323,8 @@ class MultiAgentOrchestrator:
         self.tracker.clear(job.job_id)
 
     async def _process_ticker(self, job_id: str, ticker: str) -> StockReport:
-        log.info("▶ [%s] Pipeline start", ticker)
+        print(f"[PIPELINE] Starting {ticker} - Agent 1 DataCollection", flush=True)
+        log.info("[PIPELINE] Start: %s", ticker)
         loop = asyncio.get_event_loop()
 
         # ── Agent 1: Data Collection ──────────────────────────────────────────
@@ -329,7 +340,8 @@ class MultiAgentOrchestrator:
                                 goal=data_task.description, final_answer=data_output, succeeded=True)
         await self.memory.save_trace(job_id, ticker, "DataCollectionAgent", data_trace)
         self.tracker.complete(job_id, ticker, "DataCollectionAgent", "Data collected")
-        log.info("  ✓ Agent1 DataCollection done")
+        print(f"[PIPELINE] {ticker} - Agent 1 DONE", flush=True)
+        log.info("  [DONE] Agent1 DataCollection")
 
         # Build context strings for analysis agents
         m = raw_data.metrics
@@ -383,7 +395,8 @@ class MultiAgentOrchestrator:
         self.tracker.complete(job_id, ticker, "FundamentalAnalysisAgent", f"Score {fundamental.score:.0f} Grade {fundamental.grade}")
         self.tracker.complete(job_id, ticker, "SentimentAnalysisAgent",   f"Sentiment: {sentiment.overall}")
         self.tracker.complete(job_id, ticker, "RiskAnalysisAgent",        f"Risk: {risk.level} ({risk.score:.0f})")
-        log.info("  ✓ Agents 2/3/4 complete — Fund: %s, Sent: %s, Risk: %s",
+        print(f"[PIPELINE] {ticker} - Agents 2/3/4 DONE", flush=True)
+        log.info("  [DONE] Agents 2/3/4 complete - Fund: %s, Sent: %s, Risk: %s",
                  fundamental.grade, sentiment.overall, risk.level)
 
         # ── Agent 5: CIO ──────────────────────────────────────────────────────
@@ -405,7 +418,8 @@ class MultiAgentOrchestrator:
         await self.memory.save_trace(job_id, ticker, "CIOAgent", cio_trace)
         self.tracker.complete(job_id, ticker, "CIOAgent",
                               f"{recommendation.action} ({recommendation.confidence:.0f}%)")
-        log.info("  ✓ Agent5 CIO: %s %.0f%% | Target $%s",
+        print(f"[PIPELINE] {ticker} - Agent 5 CIO DONE", flush=True)
+        log.info("  [DONE] Agent5 CIO: %s %.0f%% | Target $%s",
                  recommendation.action, recommendation.confidence, recommendation.price_target)
 
         return StockReport(
@@ -432,3 +446,4 @@ def _build_summary(report: PortfolioReport, failed: dict) -> str:
     if failed:
         summary += f" Failed: {', '.join(failed.keys())}."
     return summary
+

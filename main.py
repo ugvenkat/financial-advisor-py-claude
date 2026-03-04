@@ -49,18 +49,29 @@ async def lifespan(app: FastAPI):
     orchestrator = MultiAgentOrchestrator(memory, writer, tracker)
 
     await memory.initialize()
-    log.info("✅ Financial Advisor API ready — Anthropic model: %s",
+    log.info("Financial Advisor API ready - Anthropic model: %s",
              os.getenv("ANTHROPIC_MODEL", "claude-haiku-4-5-20251001"))
     yield
     log.info("Shutting down.")
 
 
 app = FastAPI(
-    title       = "Financial Advisor — Multi-Agent AI",
+    title       = "Financial Advisor - Multi-Agent AI",
     description = "5-agent CrewAI financial analysis pipeline powered by local Ollama",
     version     = "2.0.0",
     lifespan    = lifespan,
 )
+
+from fastapi import Request
+from fastapi.responses import JSONResponse
+import traceback
+
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    tb = traceback.format_exc()
+    print(f"[ERROR] 500 on {request.url}:\n{tb}", flush=True)
+    log.error("Unhandled exception: %s\n%s", exc, tb)
+    return JSONResponse(status_code=500, content={"error": str(exc), "traceback": tb})
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -152,7 +163,7 @@ async def get_job(job_id: str):
 
 @app.get("/api/analysis/{job_id}/live")
 async def live_status(job_id: str):
-    """Live debug — see exactly what each agent is doing right now."""
+    """Live debug - see exactly what each agent is doing right now."""
     job = await memory.get_job(job_id)
     if not job:
         raise HTTPException(404, detail={"code": "JOB_NOT_FOUND", "message": f"Job '{job_id}' not found"})
@@ -184,7 +195,7 @@ async def live_status(job_id: str):
         "last_update":  status.last_update if status else None,
         "active_agents": active,
         "hint": (
-            "No live data yet — job may not have started"
+            "No live data yet - job may not have started"
             if not status else
             f"Last activity {round((datetime.utcnow() - status.last_update).total_seconds(), 0):.0f}s ago"
         ),
@@ -234,7 +245,7 @@ async def get_report(job_id: str):
     if not job:
         raise HTTPException(404, detail={"code": "JOB_NOT_FOUND", "message": f"Job '{job_id}' not found"})
     if job.status != JobStatus.Completed:
-        raise HTTPException(400, detail={"code": "JOB_NOT_COMPLETE", "message": f"Job is {job.status} — not ready yet"})
+        raise HTTPException(400, detail={"code": "JOB_NOT_COMPLETE", "message": f"Job is {job.status} - not ready yet"})
 
     path = os.path.join(job.output_dir or "", "report.md")
     if not os.path.exists(path):

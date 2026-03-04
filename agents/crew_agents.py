@@ -44,7 +44,7 @@ def data_collection_agent() -> Agent:
         tools=DATA_TOOLS,
         llm=_llm(),
         verbose=True,
-        max_iter=6,
+        max_iter=3,
         allow_delegation=False,
     )
 
@@ -65,7 +65,7 @@ def fundamental_analysis_agent() -> Agent:
         tools=FUNDAMENTAL_TOOLS,
         llm=_llm(),
         verbose=True,
-        max_iter=6,
+        max_iter=3,
         allow_delegation=False,
     )
 
@@ -86,7 +86,7 @@ def sentiment_analysis_agent() -> Agent:
         tools=SENTIMENT_TOOLS,
         llm=_llm(),
         verbose=True,
-        max_iter=6,
+        max_iter=3,
         allow_delegation=False,
     )
 
@@ -108,7 +108,7 @@ def risk_analysis_agent() -> Agent:
         tools=RISK_TOOLS,
         llm=_llm(),
         verbose=True,
-        max_iter=6,
+        max_iter=3,
         allow_delegation=False,
     )
 
@@ -123,14 +123,14 @@ def cio_agent() -> Agent:
         backstory=(
             "You are the Chief Investment Officer with 30 years of experience. "
             "You receive reports from your fundamental, sentiment, and risk analysts "
-            "and weigh all signals — including conflicting ones — to make a final "
+            "and weigh all signals - including conflicting ones - to make a final "
             "investment recommendation. You always compute a price target before deciding. "
             "Your memos are clear, concise, and backed by data."
         ),
         tools=CIO_TOOLS,
         llm=_llm(),
         verbose=True,
-        max_iter=4,
+        max_iter=2,
         allow_delegation=False,
     )
 
@@ -177,8 +177,8 @@ Pre-loaded context from data collection:
 Your tasks:
 1. If any key metrics are missing, use get_financial_ratios or get_stock_price to fetch them
 2. Run calculate_fundamental_score with ALL available metrics
-3. Interpret the score — what does it mean for this specific company?
-4. Consider the sector context — is this P/E reasonable for this industry?
+3. Interpret the score - what does it mean for this specific company?
+4. Consider the sector context - is this P/E reasonable for this industry?
 5. Identify the top 3 strengths and top 3 weaknesses with supporting data points
 """,
         expected_output=f"""
@@ -258,22 +258,22 @@ def make_cio_task(
         description=f"""
 You are the Chief Investment Officer. Make a final investment decision for {ticker} ({company_name}).
 
-═══ AGENT REPORTS ═══
+=== AGENT REPORTS ===
 
-📊 FUNDAMENTAL ANALYSIS REPORT:
+FUNDAMENTAL ANALYSIS REPORT:
 {fundamental_report}
 
-📰 SENTIMENT ANALYSIS REPORT:
+SENTIMENT ANALYSIS REPORT:
 {sentiment_report}
 
-⚠️ RISK ANALYSIS REPORT:
+RISK ANALYSIS REPORT:
 {risk_report}
 
-📈 MARKET DATA:
+MARKET DATA:
 {metrics_context}
 
-═══ YOUR DECISION PROCESS ═══
-Step 1: Weigh the signals — do they agree or conflict?
+=== YOUR DECISION PROCESS ===
+Step 1: Weigh the signals - do they agree or conflict?
 Step 2: Consider the risk-adjusted opportunity
 Step 3: Determine your action: StrongBuy / Buy / Hold / Sell / StrongSell
 Step 4: Call compute_price_target to calculate a price target

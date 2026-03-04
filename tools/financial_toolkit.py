@@ -121,7 +121,7 @@ def get_stock_price(ticker: str) -> str:
                 "exchange":      meta.get("exchangeName"),
             }
         except Exception:
-            return f"Could not fetch price data for {sym} — Yahoo Finance API unavailable"
+            return f"Could not fetch price data for {sym} - Yahoo Finance API unavailable"
 
     cleaned = {k: v for k, v in result.items() if v is not None}
     return json.dumps(cleaned, indent=2) if cleaned else f"No data returned for {sym}"
@@ -445,7 +445,7 @@ def calculate_fundamental_score(
         if val is None:
             return 0.5 * weight, weight, "N/A (neutral 50pts)"
         pts = scorer(val)
-        label = f"{val:.2f} → {pts * 100:.0f}/100"
+        label = f"{val:.2f} - {pts * 100:.0f}/100"
         return pts * weight, weight, label
 
     breakdown  = {}
@@ -518,7 +518,7 @@ def calculate_risk_score(
         br = 90 if beta > 2.0 else 75 if beta > 1.5 else 60 if beta > 1.2 else 40 if beta > 0.8 else 20
         risk_sum += br; cnt += 1
         if beta > 1.5:
-            factors.append(f"High beta ({beta:.2f}) — elevated volatility")
+            factors.append(f"High beta ({beta:.2f}) - elevated volatility")
     else:
         risk_sum += 50; cnt += 1
 
@@ -526,7 +526,7 @@ def calculate_risk_score(
         vr = 90 if pe_ratio > 80 else 75 if pe_ratio > 50 else 60 if pe_ratio > 35 else 35 if pe_ratio > 20 else 15
         risk_sum += vr; cnt += 1
         if pe_ratio > 60:
-            factors.append(f"Very high P/E ({pe_ratio:.1f}) — priced for perfection")
+            factors.append(f"Very high P/E ({pe_ratio:.1f}) - priced for perfection")
     else:
         risk_sum += 50; cnt += 1
 
@@ -544,7 +544,7 @@ def calculate_risk_score(
         risk_sum += 70 if pos > 0.9 else 45 if pos > 0.7 else 30 if pos > 0.4 else 50
         cnt += 1
         if pos > 0.9:
-            factors.append("Near 52-week high — limited upside margin")
+            factors.append("Near 52-week high - limited upside margin")
 
     sector_mult = {
         "technology": 1.3, "energy": 1.4, "consumer discretionary": 1.2,
