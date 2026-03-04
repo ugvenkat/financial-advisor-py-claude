@@ -1,0 +1,22 @@
+# ── NEVER commit these ────────────────────────────────
+.env
+*.env
+.env.*
+
+# ── Python junk ───────────────────────────────────────
+__pycache__/
+*.py[cod]
+*.pyo
+venv/
+.venv/
+*.egg-info/
+dist/
+build/
+
+# ── App data (db + reports) ───────────────────────────
+data/
+reports/
+
+# ── OS junk ───────────────────────────────────────────
+.DS_Store
+Thumbs.db
